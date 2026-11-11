@@ -67,10 +67,42 @@ If requirements later call for a dedicated vector service, OCR service, identity
 
 Requirements: Python 3.12–3.14 with [uv](https://docs.astral.sh/uv/), and Node.js 22.12+ with npm.
 
+### Local infrastructure
+
+Use Docker to start the local PostgreSQL + pgvector and Redis dependencies before the backend service. Copy the repository template and start the stack:
+
+```sh
+cp .env.example .env
+docker compose up -d
+```
+
+Check readiness:
+
+```sh
+docker compose ps
+docker compose exec postgres sh -lc 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+docker compose exec redis sh -lc 'redis-cli -a "$REDIS_PASSWORD" ping'
+```
+
+Stop the stack without deleting the named volumes:
+
+```sh
+docker compose stop
+```
+
+Reset the local data only when you intentionally want to destroy the developer volumes:
+
+```sh
+docker compose down -v
+```
+
+This project intentionally does not add an S3-compatible object-store emulator yet; the first upload steps will use a fake/test adapter until the private-storage implementation is introduced in Step 08.
+
 ### Backend
 
 ```sh
 cd backend
+cp .env.example .env
 uv sync --all-groups
 uv run uvicorn enterprise_knowledge_copilot.main:app --reload
 ```

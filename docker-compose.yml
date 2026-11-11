@@ -1,0 +1,40 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: ekc-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-enterprise_knowledge_copilot}
+      POSTGRES_USER: ${POSTGRES_USER:-enterprise_knowledge_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-dev-password-only}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ekc_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: ekc-redis
+    command: >
+      sh -c "redis-server --appendonly yes --requirepass \"$${REDIS_PASSWORD:-local-dev-redis-password}\""
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-local-dev-redis-password}
+    ports:
+      - "6379:6379"
+    volumes:
+      - ekc_redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+volumes:
+  ekc_postgres_data:
+  ekc_redis_data:
