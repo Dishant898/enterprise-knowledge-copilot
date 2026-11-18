@@ -135,3 +135,6 @@ npm run typecheck
 
 The frontend is available at http://localhost:3000. The backend API is available at
 http://localhost:8000, with its generated API docs at http://localhost:8000/docs.
+The frontend proxies `/api/*` and `/health/*` requests to the backend, so the status and health
+endpoints can also be accessed through `http://localhost:3000/api/v1/status`,
+`http://localhost:3000/health/live`, and `http://localhost:3000/health/ready`.
