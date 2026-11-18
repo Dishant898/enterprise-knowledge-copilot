@@ -1,3 +1,3 @@
-from fastapi import FastAPI
+from enterprise_knowledge_copilot.app_factory import create_app
 
-app = FastAPI(title="Enterprise Knowledge Copilot API")
+app = create_app()
