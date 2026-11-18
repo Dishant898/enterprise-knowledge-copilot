@@ -149,7 +149,7 @@ def create_app(settings: Settings | None = None, *, enable_routers: bool = True)
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(
         request: Request,
-        exc: RequestValidationError,
+        _exc: RequestValidationError,
     ) -> JSONResponse:
         request_id = getattr(request.state, "request_id", _REQUEST_ID_CTX.get() or "unknown")
         logger.warning(
@@ -173,7 +173,7 @@ def create_app(settings: Settings | None = None, *, enable_routers: bool = True)
         )
 
     @app.exception_handler(Exception)
-    async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    async def unhandled_exception_handler(request: Request, _exc: Exception) -> JSONResponse:
         request_id = getattr(request.state, "request_id", _REQUEST_ID_CTX.get() or "unknown")
         logger.exception(
             "unhandled_exception",
@@ -183,7 +183,7 @@ def create_app(settings: Settings | None = None, *, enable_routers: bool = True)
                 "path": request.url.path,
                 "status_code": 500,
             },
-            exc_info=exc,
+            exc_info=_exc,
         )
         return JSONResponse(
             status_code=500,
