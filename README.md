@@ -116,6 +116,20 @@ uv run ruff format --check .
 uv run mypy src tests
 ```
 
+Apply or inspect database migrations from the backend directory:
+
+```sh
+uv run --env-file .env alembic upgrade head
+uv run --env-file .env alembic current
+uv run --env-file .env alembic check
+```
+
+Create a migration after changing models with
+`uv run --env-file .env alembic revision --autogenerate -m "describe the schema change"`.
+Review generated migrations before applying them. `alembic downgrade -1` rolls back one
+revision; use it only in a disposable or explicitly approved environment. The initial downgrade
+removes the application tables but intentionally leaves the shared `vector` extension installed.
+
 ### Frontend
 
 ```sh

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
@@ -16,7 +18,11 @@ def valid_settings() -> Settings:
     )
 
 
-def test_settings_require_database_and_redis(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_settings_require_database_and_redis(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.delenv("REDIS_URL", raising=False)
 
