@@ -67,36 +67,34 @@ If requirements later call for a dedicated vector service, OCR service, identity
 
 Requirements: Python 3.12–3.14 with [uv](https://docs.astral.sh/uv/), and Node.js 22.12+ with npm.
 
-### Local infrastructure
+### Docker development stack
 
-Use Docker to start the local PostgreSQL + pgvector and Redis dependencies before the backend service. PostgreSQL uses host port 5433 by default to avoid conflicts with a PostgreSQL server installed directly on the host. Copy the repository template and start the stack:
+The backend and frontend run in Docker with automatic reload; Redis runs in Docker as well. The
+database is the PostgreSQL instance already listening on the host at port 5432, because the
+requested `DATABASE_URL` points to `localhost:5432`. The requested PostgreSQL role and database
+must exist and allow migrations. Docker uses `host.docker.internal` to reach that same host
+database; it does not create or switch to a second database. Copy the root and backend templates:
 
 ```sh
 cp .env.example .env
-docker compose up -d
+cp backend/.env.example backend/.env
 ```
 
-Check readiness:
+Start the app stack from the repository root:
 
 ```sh
-docker compose ps
-docker compose exec postgres sh -lc 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
-docker compose exec redis sh -lc 'redis-cli -a "$REDIS_PASSWORD" ping'
+docker compose up --build
 ```
 
-Stop the stack without deleting the named volumes:
+The backend applies pending migrations at startup. The frontend is at http://localhost:3000 and
+the API is at http://localhost:8000. Both reload after source changes, and containers restart
+unless stopped. To run in the background, use `docker compose up --build -d`; view logs with
+`docker compose logs -f backend frontend`; stop with `docker compose down`.
 
-```sh
-docker compose stop
-```
-
-Reset the local data only when you intentionally want to destroy the developer volumes:
-
-```sh
-docker compose down -v
-```
-
-This project intentionally does not add an S3-compatible object-store emulator yet; the first upload steps will use a fake/test adapter until the private-storage implementation is introduced in Step 08.
+The host `DATABASE_URL` in the root and backend `.env` files remains
+`postgresql+psycopg://username:password@localhost:5432/knowledge-copilot`. Only the Docker
+container's hostname changes to `host.docker.internal`, which routes to that same host database.
+The `username`/`password` credentials shown in the local templates are for development only.
 
 ### Backend
 
@@ -161,8 +159,8 @@ endpoints can also be accessed through `http://localhost:3000/api/v1/status`,
 
 ### Local sign-in and owner account
 
-For local development only, enable `DEVELOPMENT_AUTH_ENABLED=true` in `backend/.env`, apply the
-migrations, and seed the owner account:
+For local development only, keep `DEVELOPMENT_AUTH_ENABLED=true` in `backend/.env`. The Docker
+backend applies migrations at startup. Seed the owner account if it does not already exist:
 
 ```sh
 cd backend
@@ -170,7 +168,7 @@ uv run --env-file .env alembic upgrade head
 uv run --env-file .env python scripts/seed_local_admin.py
 ```
 
-Start the backend and frontend, open http://localhost:3000, and sign in with
-`admin` / `admin`. The seed creates `dev|admin` as an organization `owner` and manager of the default
-`company-knowledge` knowledge base. Development authentication is blocked when
+Start the Docker stack, open http://localhost:3000, and use the development credentials in
+`backend/.env`. The seed creates the configured identity subject as an organization `owner` and
+manager of the default `company-knowledge` knowledge base. Development authentication is blocked when
 `ENVIRONMENT=production` and is not an identity-provider integration for deployed environments.

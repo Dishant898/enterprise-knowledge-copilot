@@ -52,6 +52,7 @@ def test_development_login_rejects_invalid_credentials() -> None:
         redis_url="redis://localhost/0",
         environment="local",
         development_auth_enabled=True,
+        development_auth_subject="dev|admin",
         development_auth_username="admin",
         development_auth_password="admin",
     )
@@ -69,6 +70,7 @@ def test_development_login_accepts_dummy_admin() -> None:
         redis_url="redis://localhost/0",
         environment="local",
         development_auth_enabled=True,
+        development_auth_subject="dev|admin",
         development_auth_username="admin",
         development_auth_password="admin",
     )

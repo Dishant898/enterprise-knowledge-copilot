@@ -1,31 +1,13 @@
 services:
-  postgres:
-    image: pgvector/pgvector:pg16
-    container_name: ekc-postgres
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-enterprise_knowledge_copilot}
-      POSTGRES_USER: ${POSTGRES_USER:-enterprise_knowledge_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-dev-password-only}
-    ports:
-      - "${POSTGRES_PORT:-5433}:5432"
-    volumes:
-      - ekc_postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-      start_period: 10s
-
   redis:
     image: redis:7-alpine
-    container_name: ekc-redis
-    command: >
-      sh -c "redis-server --appendonly yes --requirepass \"$${REDIS_PASSWORD:-local-dev-redis-password}\""
+    restart: unless-stopped
     environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-local-dev-redis-password}
-    ports:
-      - "6379:6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in the root .env file}
+    command:
+      - sh
+      - -c
+      - exec redis-server --appendonly yes --requirepass "$${REDIS_PASSWORD}"
     volumes:
       - ekc_redis_data:/data
     healthcheck:
@@ -35,6 +17,55 @@ services:
       retries: 10
       start_period: 5s
 
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      DATABASE_URL: ${DOCKER_DATABASE_URL:?Set DOCKER_DATABASE_URL in the root .env file}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      redis:
+        condition: service_healthy
+    command:
+      - sh
+      - -c
+      - uv run alembic upgrade head && exec uv run uvicorn enterprise_knowledge_copilot.main:app --host 0.0.0.0 --port 8000 --reload
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/health/live', timeout=3)"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      API_BASE_URL: http://backend:8000
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      backend:
+        condition: service_healthy
+
 volumes:
-  ekc_postgres_data:
   ekc_redis_data:
