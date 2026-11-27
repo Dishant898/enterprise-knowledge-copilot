@@ -12,7 +12,9 @@ from sqlalchemy.orm import Session
 
 from enterprise_knowledge_copilot.config import Settings
 from enterprise_knowledge_copilot.db.models import (
+    KnowledgeBase,
     KnowledgeBaseMembership,
+    Organization,
     OrganizationMembership,
     User,
 )
@@ -55,8 +57,7 @@ class AuthenticatedPrincipal:
 
 
 class IdentityProvider(Protocol):
-    def validate(self, credential: str) -> IdentityClaims:
-        ...
+    def validate(self, credential: str) -> IdentityClaims: ...
 
 
 class OIDCIdentityProvider:
@@ -150,22 +151,49 @@ DevelopmentIdentityProvider = DevelopmentIdentityAdapter
 
 
 def resolve_principal(session: Session, claims: IdentityClaims) -> AuthenticatedPrincipal:
-    user = session.scalar(
-        select(User).where(User.identity_provider_subject == claims.subject)
-    )
-    if user is None:
-        raise AuthenticationError("Authenticated identity has no application user.")
+    user = session.scalar(select(User).where(User.identity_provider_subject == claims.subject))
+    if user is None or not user.is_active:
+        raise AuthenticationError("Authenticated identity has no active application user.")
 
     organization_roles = {
         membership.organization_id: membership.role
         for membership in session.scalars(
-            select(OrganizationMembership).where(OrganizationMembership.user_id == user.id)
+            select(OrganizationMembership)
+            .join(
+                Organization,
+                Organization.id == OrganizationMembership.organization_id,
+            )
+            .where(
+                OrganizationMembership.user_id == user.id,
+                OrganizationMembership.status == "active",
+                Organization.status == "active",
+            )
         )
     }
     knowledge_base_roles = {
         (membership.organization_id, membership.knowledge_base_id): membership.role
         for membership in session.scalars(
-            select(KnowledgeBaseMembership).where(KnowledgeBaseMembership.user_id == user.id)
+            select(KnowledgeBaseMembership)
+            .join(
+                KnowledgeBase,
+                (KnowledgeBase.id == KnowledgeBaseMembership.knowledge_base_id)
+                & (KnowledgeBase.organization_id == KnowledgeBaseMembership.organization_id),
+            )
+            .join(
+                Organization,
+                Organization.id == KnowledgeBaseMembership.organization_id,
+            )
+            .join(
+                OrganizationMembership,
+                (OrganizationMembership.organization_id == KnowledgeBaseMembership.organization_id)
+                & (OrganizationMembership.user_id == KnowledgeBaseMembership.user_id),
+            )
+            .where(
+                KnowledgeBaseMembership.user_id == user.id,
+                KnowledgeBase.status == "active",
+                Organization.status == "active",
+                OrganizationMembership.status == "active",
+            )
         )
     }
     return AuthenticatedPrincipal(
@@ -178,7 +206,7 @@ def resolve_principal(session: Session, claims: IdentityClaims) -> Authenticated
 
 def get_db_session(request: Request) -> Session:
     session = getattr(request.app.state, "db_session", None)
-    if session is None:
+    if not isinstance(session, Session):
         raise RuntimeError("Database session is not configured.")
     return session
 
@@ -309,9 +337,8 @@ def has_knowledge_base_role(
     knowledge_base_id: UUID,
     *roles: str,
 ) -> bool:
-    return (
-        principal.knowledge_base_roles.get((organization_id, knowledge_base_id))
-        in frozenset(roles)
+    return principal.knowledge_base_roles.get((organization_id, knowledge_base_id)) in frozenset(
+        roles
     )
 
 

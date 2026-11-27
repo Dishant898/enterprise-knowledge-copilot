@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 from sqlalchemy import create_engine
@@ -8,6 +9,7 @@ from sqlalchemy.orm import Session
 from enterprise_knowledge_copilot.app_factory import create_app
 from enterprise_knowledge_copilot.auth import (
     AuthenticatedPrincipal,
+    AuthenticationError,
     DevelopmentIdentityAdapter,
     IdentityClaims,
     resolve_principal,
@@ -147,6 +149,39 @@ def test_development_principal_resolves_current_memberships() -> None:
     engine.dispose()
 
 
+def test_inactive_accounts_and_memberships_do_not_resolve_roles() -> None:
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False})
+    Base.metadata.create_all(engine)
+    with Session(engine) as session:
+        organization = Organization(name="Acme", slug="acme")
+        user = User(identity_provider_subject="idp|alice")
+        inactive_user = User(identity_provider_subject="idp|inactive", is_active=False)
+        session.add_all([organization, user, inactive_user])
+        session.flush()
+        session.add_all(
+            [
+                OrganizationMembership(
+                    organization_id=organization.id,
+                    user_id=user.id,
+                    role="member",
+                    status="suspended",
+                ),
+                OrganizationMembership(
+                    organization_id=organization.id,
+                    user_id=inactive_user.id,
+                    role="admin",
+                ),
+            ]
+        )
+        session.commit()
+
+        principal = resolve_principal(session, IdentityClaims(subject="idp|alice"))
+        assert not principal.organization_roles
+        with pytest.raises(AuthenticationError):
+            resolve_principal(session, IdentityClaims(subject="idp|inactive"))
+    engine.dispose()
+
+
 def test_organization_and_kb_permission_helpers() -> None:
     organization_id = "8cefd3bc-bd4d-4bd7-9ab6-5b8c0ca1d4e4"
     knowledge_base_id = "3d7818d8-a1a1-4cd8-b1f4-4f3fe6a872cc"
@@ -155,9 +190,7 @@ def test_organization_and_kb_permission_helpers() -> None:
     principal = AuthenticatedPrincipal(
         subject="user",
         organization_roles={UUID(organization_id): "owner"},
-        knowledge_base_roles={
-            (UUID(organization_id), UUID(knowledge_base_id)): "manager"
-        },
+        knowledge_base_roles={(UUID(organization_id), UUID(knowledge_base_id)): "manager"},
     )
     from enterprise_knowledge_copilot.permissions import (
         knowledge_base_role_at_least,
