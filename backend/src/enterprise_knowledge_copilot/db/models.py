@@ -4,6 +4,7 @@ from datetime import datetime
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
+    JSON,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -95,6 +96,7 @@ class KnowledgeBase(UUIDPrimaryKey, Timestamped, Base):
     organization_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     slug: Mapped[str] = mapped_column(String(100), nullable=False)
+    description: Mapped[str | None] = mapped_column(String(1000), nullable=True)
 
 
 class KnowledgeBaseMembership(Timestamped, Base):
@@ -123,3 +125,29 @@ class KnowledgeBaseMembership(Timestamped, Base):
     knowledge_base_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
     user_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
     role: Mapped[str] = mapped_column(String(32), nullable=False)
+
+
+class AuditEvent(UUIDPrimaryKey, Timestamped, Base):
+    __tablename__ = "audit_events"
+    __table_args__ = (
+        Index("ix_audit_events_org_created", "organization_id", "created_at"),
+        ForeignKeyConstraint(
+            ["organization_id"],
+            ["organizations.id"],
+            name="fk_audit_events_organization_id_organizations",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["actor_user_id"],
+            ["users.id"],
+            name="fk_audit_events_actor_user_id_users",
+            ondelete="SET NULL",
+        ),
+    )
+
+    organization_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    actor_user_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    action: Mapped[str] = mapped_column(String(100), nullable=False)
+    entity_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    entity_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    event_metadata: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)

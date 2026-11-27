@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 
+from fastapi import Request
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -25,10 +26,18 @@ def get_session_factory() -> sessionmaker[Session]:
     return _session_factory
 
 
-def get_db() -> Iterator[Session]:
-    if _session_factory is None:
-        raise RuntimeError("Database is not configured.")
-    with _session_factory() as session:
+def get_db(request: Request) -> Iterator[Session]:
+    app_session = getattr(request.app.state, "db_session", None)
+    if callable(app_session):
+        session_factory = app_session
+    elif app_session is None:
+        session_factory = get_session_factory()
+    else:
+        session_factory = app_session
+
+    if callable(session_factory) and hasattr(session_factory, "close_all"):
+        raise RuntimeError("Expected a SQLAlchemy session factory.")
+    with session_factory() as session:
         yield session
 
 
