@@ -17,6 +17,7 @@ from starlette.responses import Response
 
 from enterprise_knowledge_copilot.api.v1.router import router
 from enterprise_knowledge_copilot.config import Settings
+from enterprise_knowledge_copilot.db.session import configure_database, get_session_factory
 
 _REQUEST_ID_CTX: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "request_id",
@@ -91,6 +92,13 @@ def create_app(settings: Settings | None = None, *, enable_routers: bool = True)
     app.state.settings = resolved_settings
     app.state.dependency_checks = lambda: _default_dependency_checks(resolved_settings)
 
+    if resolved_settings.database_url:
+        try:
+            configure_database(resolved_settings.database_url)
+            app.state.db_session = get_session_factory()
+        except Exception:
+            app.state.db_session = None
+
     logger = logging.getLogger("enterprise_knowledge_copilot")
     logger.setLevel(getattr(logging, resolved_settings.log_level.upper(), logging.INFO))
     if not logger.handlers:
@@ -106,6 +114,32 @@ def create_app(settings: Settings | None = None, *, enable_routers: bool = True)
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    @app.middleware("http")
+    async def csrf_middleware(
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
+        if (
+            resolved_settings.auth_mode == "cookie"
+            and request.method in {"POST", "PUT", "PATCH", "DELETE"}
+            and request.cookies.get(resolved_settings.auth_cookie_name)
+        ):
+            cookie = request.cookies.get(resolved_settings.csrf_cookie_name)
+            header = request.headers.get(resolved_settings.csrf_header_name)
+            if not cookie or not header or cookie != header:
+                request_id = getattr(request.state, "request_id", "unknown")
+                return JSONResponse(
+                    status_code=403,
+                    content={
+                        "error": {
+                            "code": "csrf_validation_failed",
+                            "message": "CSRF validation failed.",
+                            "request_id": request_id,
+                        }
+                    },
+                )
+        return await call_next(request)
 
     @app.middleware("http")
     async def request_id_middleware(

@@ -25,7 +25,7 @@ def _database_url() -> str:
             "(for example: uv run --env-file .env alembic current)."
         )
     url = make_url(raw_url)
-    if url.drivername in {"postgres", "postgresql"}:
+    if url.drivername in {"postgres", "postgresql", "postgresql+asyncpg"}:
         url = url.set(drivername="postgresql+psycopg")
     return url.render_as_string(hide_password=False)
 
