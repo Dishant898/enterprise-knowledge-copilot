@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import AliasChoices, Field, field_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -36,6 +36,30 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("LLM_API_KEY", "llm_api_key"),
     )
+    auth_mode: str = "bearer"
+    development_auth_enabled: bool = False
+    development_auth_header: str = "X-Development-Subject"
+    oidc_issuer: str | None = None
+    oidc_audience: str | None = None
+    oidc_jwks_url: str | None = None
+    auth_cookie_name: str = "ekc_session"
+    auth_cookie_secure: bool = True
+    csrf_cookie_name: str = "ekc_csrf"
+    csrf_header_name: str = "X-CSRF-Token"
+
+    @field_validator("auth_mode")
+    @classmethod
+    def validate_auth_mode(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if normalized not in {"bearer", "cookie"}:
+            raise ValueError("auth_mode must be 'bearer' or 'cookie'.")
+        return normalized
+
+    @field_validator("auth_cookie_secure")
+    @classmethod
+    def validate_cookie_security(cls, value: bool, info: Any) -> bool:
+        # The complete environment check is in validate_development_auth.
+        return value
 
     @field_validator("database_url", "redis_url")
     @classmethod
@@ -43,6 +67,13 @@ class Settings(BaseSettings):
         if value is None or not value.strip():
             raise ValueError("This setting is required and cannot be blank.")
         return value.strip()
+
+    @model_validator(mode="after")
+    def validate_development_auth(self) -> Settings:
+        if self.development_auth_enabled:
+            if self.environment.strip().lower() in {"production", "prod"}:
+                raise ValueError("Development authentication cannot be enabled in production.")
+        return self
 
     @field_validator("cors_allowed_origins", mode="before")
     @classmethod
