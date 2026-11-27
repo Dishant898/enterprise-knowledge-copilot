@@ -3,7 +3,8 @@ from __future__ import annotations
 from collections.abc import Iterator
 
 from fastapi import Request
-from sqlalchemy import Engine, create_engine
+from sqlalchemy import Engine, create_engine, text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
 from enterprise_knowledge_copilot.db.base import Base
@@ -24,6 +25,17 @@ def get_session_factory() -> sessionmaker[Session]:
     if _session_factory is None:
         raise RuntimeError("Database is not configured.")
     return _session_factory
+
+
+def database_is_available() -> bool:
+    if _engine is None:
+        return False
+    try:
+        with _engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+    except SQLAlchemyError:
+        return False
+    return True
 
 
 def get_db(request: Request) -> Iterator[Session]:

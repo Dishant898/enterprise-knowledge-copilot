@@ -17,7 +17,11 @@ from starlette.responses import Response
 
 from enterprise_knowledge_copilot.api.v1.router import router
 from enterprise_knowledge_copilot.config import Settings
-from enterprise_knowledge_copilot.db.session import configure_database, get_session_factory
+from enterprise_knowledge_copilot.db.session import (
+    configure_database,
+    database_is_available,
+    get_session_factory,
+)
 
 _REQUEST_ID_CTX: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "request_id",
@@ -76,7 +80,7 @@ def _request_id_from_header(header_value: str | None) -> str:
 
 def _default_dependency_checks(settings: Settings) -> dict[str, bool]:
     return {
-        "database": bool(settings.database_url),
+        "database": bool(settings.database_url) and database_is_available(),
         "redis": bool(settings.redis_url),
     }
 
@@ -93,11 +97,8 @@ def create_app(settings: Settings | None = None, *, enable_routers: bool = True)
     app.state.dependency_checks = lambda: _default_dependency_checks(resolved_settings)
 
     if resolved_settings.database_url:
-        try:
-            configure_database(resolved_settings.database_url)
-            app.state.db_session = get_session_factory()
-        except Exception:
-            app.state.db_session = None
+        configure_database(resolved_settings.database_url)
+        app.state.db_session = get_session_factory()
 
     logger = logging.getLogger("enterprise_knowledge_copilot")
     logger.setLevel(getattr(logging, resolved_settings.log_level.upper(), logging.INFO))

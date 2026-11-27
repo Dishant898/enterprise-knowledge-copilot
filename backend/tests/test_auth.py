@@ -44,6 +44,43 @@ def test_development_adapter_rejects_explicit_production() -> None:
     raise AssertionError("development adapter was allowed in production")
 
 
+def test_development_login_rejects_invalid_credentials() -> None:
+    settings = Settings(
+        database_url="postgresql://localhost/app",
+        redis_url="redis://localhost/0",
+        environment="local",
+        development_auth_enabled=True,
+        development_auth_username="admin",
+        development_auth_password="admin",
+    )
+    app = create_app(settings)
+    response = TestClient(app).post(
+        "/api/v1/auth/login/development",
+        json={"username": "wrong", "password": "wrong"},
+    )
+    assert response.status_code == 401
+
+
+def test_development_login_accepts_dummy_admin() -> None:
+    settings = Settings(
+        database_url="postgresql://localhost/app",
+        redis_url="redis://localhost/0",
+        environment="local",
+        development_auth_enabled=True,
+        development_auth_username="admin",
+        development_auth_password="admin",
+    )
+    app = create_app(settings)
+    client = TestClient(app)
+    response = client.post(
+        "/api/v1/auth/login/development",
+        json={"username": "admin", "password": "admin"},
+    )
+    assert response.status_code == 200
+    assert response.json()["subject"] == "dev|admin"
+    assert "ekc_session" in client.cookies
+
+
 def test_missing_authentication_is_rejected() -> None:
     settings = Settings(
         database_url="postgresql://localhost/app",

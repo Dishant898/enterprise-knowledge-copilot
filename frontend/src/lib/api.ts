@@ -79,6 +79,16 @@ export async function getPrincipal(signal?: AbortSignal): Promise<Principal> {
   return apiRequest<Principal>("/api/v1/auth/me", { signal });
 }
 
+export async function developmentLogin(
+  username: string,
+  password: string,
+): Promise<{ subject: string }> {
+  return apiRequest<{ subject: string }>("/api/v1/auth/login/development", {
+    method: "POST",
+    body: JSON.stringify({ username, password }),
+  });
+}
+
 export async function logout(): Promise<void> {
   await apiRequest<{ logged_out: boolean }>("/api/v1/auth/logout", {
     method: "POST",

@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   ApiRequestError,
+  developmentLogin,
   getPrincipal,
   logout,
   type Principal,
@@ -35,6 +36,29 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
 
     return () => controller.abort();
   }, [pathname]);
+
+  async function handleDevelopmentLogin(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    setSessionError(null);
+    setLoading(true);
+    try {
+      await developmentLogin(
+        String(form.get("username") ?? ""),
+        String(form.get("password") ?? ""),
+      );
+      const principal = await getPrincipal();
+      setPrincipal(principal);
+    } catch (error) {
+      if (error instanceof ApiRequestError) {
+        setSessionError(error.message);
+      } else {
+        setSessionError("Unable to start the local sign-in.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function handleLogout() {
     try {
@@ -84,9 +108,15 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
         <main className="page-state">
           <h1>Sign-in required</h1>
           <p>{sessionError}</p>
-          <button className="button" type="button" onClick={() => router.refresh()}>
-            Retry
-          </button>
+          <form className="login-form" onSubmit={handleDevelopmentLogin}>
+            <label htmlFor="login-username">Username</label>
+            <input id="login-username" name="username" autoComplete="username" required />
+            <label htmlFor="login-password">Password</label>
+            <input id="login-password" name="password" type="password" autoComplete="current-password" required />
+            <button className="button" type="submit">
+              Sign in
+            </button>
+          </form>
         </main>
       ) : (
         children

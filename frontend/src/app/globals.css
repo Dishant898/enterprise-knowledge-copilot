@@ -163,6 +163,22 @@ textarea {
   background: #effaf4;
 }
 
+.login-form {
+  display: grid;
+  gap: 0.65rem;
+  width: 100%;
+  max-width: 22rem;
+  margin: 1.25rem auto 0;
+  text-align: left;
+}
+
+.login-form input {
+  width: 100%;
+  padding: 0.65rem;
+  border: 1px solid #aab5c5;
+  border-radius: 0.4rem;
+}
+
 .empty-state {
   text-align: center;
 }

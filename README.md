@@ -69,7 +69,7 @@ Requirements: Python 3.12–3.14 with [uv](https://docs.astral.sh/uv/), and Node
 
 ### Local infrastructure
 
-Use Docker to start the local PostgreSQL + pgvector and Redis dependencies before the backend service. Copy the repository template and start the stack:
+Use Docker to start the local PostgreSQL + pgvector and Redis dependencies before the backend service. PostgreSQL uses host port 5433 by default to avoid conflicts with a PostgreSQL server installed directly on the host. Copy the repository template and start the stack:
 
 ```sh
 cp .env.example .env
@@ -99,6 +99,12 @@ docker compose down -v
 This project intentionally does not add an S3-compatible object-store emulator yet; the first upload steps will use a fake/test adapter until the private-storage implementation is introduced in Step 08.
 
 ### Backend
+
+The backend reads `DATABASE_URL` from `backend/.env`. To use a PostgreSQL server installed
+directly on your machine, set it to a synchronous SQLAlchemy URL such as
+`postgresql+psycopg://username:password@localhost:5432/knowledge-copilot`. This app uses
+synchronous SQLAlchemy with Psycopg; `asyncpg` URLs are not used by the runtime. Docker is optional
+when this direct database is available.
 
 ```sh
 cd backend
@@ -152,3 +158,19 @@ http://localhost:8000, with its generated API docs at http://localhost:8000/docs
 The frontend proxies `/api/*` and `/health/*` requests to the backend, so the status and health
 endpoints can also be accessed through `http://localhost:3000/api/v1/status`,
 `http://localhost:3000/health/live`, and `http://localhost:3000/health/ready`.
+
+### Local sign-in and owner account
+
+For local development only, enable `DEVELOPMENT_AUTH_ENABLED=true` in `backend/.env`, apply the
+migrations, and seed the owner account:
+
+```sh
+cd backend
+uv run --env-file .env alembic upgrade head
+uv run --env-file .env python scripts/seed_local_admin.py
+```
+
+Start the backend and frontend, open http://localhost:3000, and sign in with
+`admin` / `admin`. The seed creates `dev|admin` as an organization `owner` and manager of the default
+`company-knowledge` knowledge base. Development authentication is blocked when
+`ENVIRONMENT=production` and is not an identity-provider integration for deployed environments.

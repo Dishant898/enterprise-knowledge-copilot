@@ -131,6 +131,10 @@ class DevelopmentIdentityAdapter:
         if not subject:
             subject = request.headers.get("X-Dev-User")
         if not subject:
+            cookie = request.cookies.get("ekc_session")
+            if cookie and cookie.startswith("development:"):
+                subject = cookie.removeprefix("development:")
+        if not subject:
             raise InvalidAuthenticationError("Development identity header is missing.")
         return IdentityClaims(subject=subject.strip())
 

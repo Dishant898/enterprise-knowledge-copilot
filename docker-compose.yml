@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-enterprise_knowledge_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-dev-password-only}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5433}:5432"
     volumes:
       - ekc_postgres_data:/var/lib/postgresql/data
     healthcheck:

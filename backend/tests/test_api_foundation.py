@@ -66,6 +66,7 @@ def test_404_error_response_is_safe(valid_settings: Settings) -> None:
 
 def test_health_live_and_ready_endpoints(valid_settings: Settings) -> None:
     app = create_app(valid_settings)
+    app.state.dependency_checks = lambda: {"database": True, "redis": True}
     client = TestClient(app)
 
     live = client.get("/health/live")

@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     auth_mode: str = "bearer"
     development_auth_enabled: bool = False
     development_auth_header: str = "X-Development-Subject"
+    development_auth_subject: str = "dev|admin"
+    development_auth_username: str = "admin"
+    development_auth_password: str = "admin"
     oidc_issuer: str | None = None
     oidc_audience: str | None = None
     oidc_jwks_url: str | None = None
