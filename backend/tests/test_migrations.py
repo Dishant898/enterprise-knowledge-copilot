@@ -28,6 +28,7 @@ def test_initial_migration_up_down_and_model_drift(
             "organization_memberships",
             "knowledge_bases",
             "knowledge_base_memberships",
+            "audit_events",
             "alembic_version",
         } <= table_names
     finally:
@@ -44,6 +45,7 @@ def test_initial_migration_up_down_and_model_drift(
             "organization_memberships",
             "knowledge_bases",
             "knowledge_base_memberships",
+            "audit_events",
         } & set(inspect(engine).get_table_names())
     finally:
         engine.dispose()

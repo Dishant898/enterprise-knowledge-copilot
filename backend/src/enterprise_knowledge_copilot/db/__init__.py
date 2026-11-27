@@ -1,5 +1,6 @@
 from enterprise_knowledge_copilot.db.base import Base
 from enterprise_knowledge_copilot.db.models import (
+    AuditEvent,
     KnowledgeBase,
     KnowledgeBaseMembership,
     Organization,
@@ -15,6 +16,7 @@ from enterprise_knowledge_copilot.db.session import (
 
 __all__ = [
     "Base",
+    "AuditEvent",
     "KnowledgeBase",
     "KnowledgeBaseMembership",
     "Organization",
